@@ -1,4 +1,4 @@
 all:
-	python docker/render_template docker/Dockerfile.j2 '{"base": "debian"}' > docker/Dockerfile.debian
-	python docker/render_template docker/Dockerfile.j2 '{"base": "alpine"}' > docker/Dockerfile.alpine
+	python render_template Dockerfile.j2 '{"base": "debian"}' > Dockerfile.debian
+	python render_template Dockerfile.j2 '{"base": "alpine"}' > Dockerfile.alpine
 .PHONY: all
