@@ -1,0 +1,68 @@
+{
+  "admin": {
+    "title": "Vaultwarden 管理面板",
+    "navigation": {
+      "settings": "设置",
+      "users": "用户",
+      "organizations": "组织",
+      "diagnostics": "诊断",
+      "vault": "保险库",
+      "logout": "退出登录"
+    },
+    "theme": {
+      "toggle": "切换主题",
+      "light": "浅色",
+      "dark": "深色",
+      "auto": "自动"
+    },
+    "settings": {
+      "configuration": "配置",
+      "note": "注意：此处的设置会覆盖环境变量。保存后，建议停止设置环境变量以避免混淆。",
+      "readonly_note": "注意：这些选项无法在编辑器中修改，因为它们需要重启服务器才能生效。",
+      "save": "保存",
+      "reset_defaults": "恢复默认设置",
+      "test_smtp": "测试SMTP",
+      "enter_test_email": "输入测试邮箱",
+      "send_test_email": "发送测试邮件",
+      "please_provide_valid_email": "请输入有效的邮箱地址",
+      "backup_database": "备份数据库",
+      "backup_warning": "警告：此功能仅创建SQLite数据库的备份副本。这不包括任何配置或文件附件数据，可能还需要完全恢复vaultwarden实例。有关如何执行完整备份的详细信息，请参阅关于备份的wiki页面。",
+      "backup_button": "备份数据库"
+    },
+    "security_warning": {
+      "title": "安全警告",
+      "plaintext_token": "您正在使用不安全的纯文本 `ADMIN_TOKEN`。",
+      "generate_secure": "请使用 `vaultwarden hash` 或 `argon2` 生成安全的Argon2 PHC字符串。",
+      "see_more": "查看：启用管理页面 - 保护 `ADMIN_TOKEN`"
+    }
+  },
+  "email": {
+    "welcome": {
+      "subject": "欢迎",
+      "message": "感谢您在 {{url}} 创建账户。您现在可以使用新账户登录。",
+      "ignore_if_not_requested": "如果您没有请求创建账户，可以安全地忽略此邮件。"
+    },
+    "footer": {
+      "copyright": "&copy; {{year}} Vaultwarden",
+      "learn_more": "了解更多关于 Vaultwarden 的信息，请访问",
+      "unsubscribe": "如需取消订阅这些邮件，请访问您的账户设置。"
+    }
+  },
+  "common": {
+    "loading": "加载中...",
+    "processing": "处理中...",
+    "success": "成功",
+    "error": "错误",
+    "warning": "警告",
+    "info": "信息",
+    "save": "保存",
+    "cancel": "取消",
+    "delete": "删除",
+    "edit": "编辑",
+    "view": "查看",
+    "close": "关闭",
+    "confirm": "确认",
+    "yes": "是",
+    "no": "否"
+  }
+}

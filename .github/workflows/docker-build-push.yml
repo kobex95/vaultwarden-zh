@@ -1,0 +1,154 @@
+name: Docker Build and Push
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Docker image version tag (e.g., latest, v1.0.0)'
+        required: true
+        default: 'latest'
+      push_to_dockerhub:
+        description: 'Push to Docker Hub'
+        type: boolean
+        default: true
+      push_to_ghcr:
+        description: 'Push to GitHub Container Registry'
+        type: boolean
+        default: false
+
+env:
+  # Docker Hub 配置 - 需要在仓库设置中配置以下 secrets:
+  # DOCKERHUB_USERNAME: 你的 Docker Hub 用户名
+  # DOCKERHUB_TOKEN: 你的 Docker Hub 访问令牌
+  DOCKERHUB_REPO: index.docker.io/${{ secrets.DOCKERHUB_USERNAME }}/vaultwarden-zh
+  
+  # GitHub Container Registry 配置
+  GHCR_REPO: ghcr.io/${{ github.repository_owner }}/vaultwarden-zh
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+    
+    steps:
+      # 检出代码
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 设置 QEMU 用于多架构构建
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      # 设置 Docker Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # 登录到 Docker Hub (如果启用了推送)
+      - name: Login to Docker Hub
+        if: ${{ inputs.push_to_dockerhub && secrets.DOCKERHUB_USERNAME && secrets.DOCKERHUB_TOKEN }}
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # 登录到 GitHub Container Registry (如果启用了推送)
+      - name: Login to GitHub Container Registry
+        if: ${{ inputs.push_to_ghcr }}
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 获取源代码版本信息
+      - name: Get version info
+        id: version
+        run: |
+          # 获取当前提交的标签或哈希
+          GIT_TAG=$(git describe --tags --exact-match 2>/dev/null || echo "")
+          if [ -n "$GIT_TAG" ]; then
+            VERSION=$GIT_TAG
+          else
+            # 如果没有标签，使用提交哈希
+            COMMIT_HASH=$(git rev-parse --short HEAD)
+            VERSION="${{ inputs.version }}-${COMMIT_HASH}"
+          fi
+          
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "commit_hash=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+
+      # 构建和推送 Debian 镜像
+      - name: Build and push Debian image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/Dockerfile.debian
+          platforms: linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6
+          push: ${{ inputs.push_to_dockerhub || inputs.push_to_ghcr }}
+          tags: |
+            ${{ inputs.push_to_dockerhub && format('{0}:{1}', env.DOCKERHUB_REPO, steps.version.outputs.version) || '' }}
+            ${{ inputs.push_to_dockerhub && format('{0}:latest', env.DOCKERHUB_REPO) || '' }}
+            ${{ inputs.push_to_ghcr && format('{0}:{1}', env.GHCR_REPO, steps.version.outputs.version) || '' }}
+            ${{ inputs.push_to_ghcr && format('{0}:latest', env.GHCR_REPO) || '' }}
+          build-args: |
+            SOURCE_COMMIT=${{ steps.version.outputs.commit_hash }}
+            SOURCE_VERSION=${{ steps.version.outputs.version }}
+          labels: |
+            org.opencontainers.image.title=Vaultwarden
+            org.opencontainers.image.description=Unofficial Bitwarden compatible server written in Rust
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}
+            org.opencontainers.image.revision=${{ steps.version.outputs.commit_hash }}
+            org.opencontainers.image.created=${{ github.event.head_commit.timestamp || github.run_created_at }}
+
+      # 构建和推送 Alpine 镜像
+      - name: Build and push Alpine image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/Dockerfile.alpine
+          platforms: linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6
+          push: ${{ inputs.push_to_dockerhub || inputs.push_to_ghcr }}
+          tags: |
+            ${{ inputs.push_to_dockerhub && format('{0}:{1}-alpine', env.DOCKERHUB_REPO, steps.version.outputs.version) || '' }}
+            ${{ inputs.push_to_dockerhub && format('{0}:alpine', env.DOCKERHUB_REPO) || '' }}
+            ${{ inputs.push_to_ghcr && format('{0}:{1}-alpine', env.GHCR_REPO, steps.version.outputs.version) || '' }}
+            ${{ inputs.push_to_ghcr && format('{0}:alpine', env.GHCR_REPO) || '' }}
+          build-args: |
+            SOURCE_COMMIT=${{ steps.version.outputs.commit_hash }}
+            SOURCE_VERSION=${{ steps.version.outputs.version }}
+          labels: |
+            org.opencontainers.image.title=Vaultwarden Alpine
+            org.opencontainers.image.description=Unofficial Bitwarden compatible server written in Rust (Alpine version)
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}
+            org.opencontainers.image.revision=${{ steps.version.outputs.commit_hash }}
+            org.opencontainers.image.created=${{ github.event.head_commit.timestamp || github.run_created_at }}
+
+      # 创建发行版摘要
+      - name: Create release summary
+        run: |
+          echo "## Docker Images Built Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Images pushed:" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ inputs.push_to_dockerhub }}" == "true" ]]; then
+            echo "- Docker Hub: ${{ env.DOCKERHUB_REPO }}:${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Docker Hub (latest): ${{ env.DOCKERHUB_REPO }}:latest" >> $GITHUB_STEP_SUMMARY
+            echo "- Docker Hub Alpine: ${{ env.DOCKERHUB_REPO }}:${{ steps.version.outputs.version }}-alpine" >> $GITHUB_STEP_SUMMARY
+            echo "- Docker Hub Alpine (latest): ${{ env.DOCKERHUB_REPO }}:alpine" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [[ "${{ inputs.push_to_ghcr }}" == "true" ]]; then
+            echo "- GitHub Container Registry: ${{ env.GHCR_REPO }}:${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+            echo "- GitHub Container Registry (latest): ${{ env.GHCR_REPO }}:latest" >> $GITHUB_STEP_SUMMARY
+            echo "- GitHub Container Registry Alpine: ${{ env.GHCR_REPO }}:${{ steps.version.outputs.version }}-alpine" >> $GITHUB_STEP_SUMMARY
+            echo "- GitHub Container Registry Alpine (latest): ${{ env.GHCR_REPO }}:alpine" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Build Info:" >> $GITHUB_STEP_SUMMARY
+          echo "- Version: ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Commit: ${{ steps.version.outputs.commit_hash }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Built at: $(date -u)" >> $GITHUB_STEP_SUMMARY
