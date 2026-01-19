@@ -47,18 +47,9 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # 登录到 Docker Hub (如果启用了推送并且有凭证)
-      - name: Check Docker Hub credentials
-        id: check_dockerhub
-        run: |
-          if [[ "${{ inputs.push_to_dockerhub }}" == "true" ]] && [[ -n "${{ secrets.DOCKERHUB_USERNAME }}" ]] && [[ -n "${{ secrets.DOCKERHUB_TOKEN }}" ]]; then
-            echo "has_credentials=true" >> $GITHUB_OUTPUT
-          else
-            echo "has_credentials=false" >> $GITHUB_OUTPUT
-          fi
-      
+      # 登录到 Docker Hub (如果启用了推送)
       - name: Login to Docker Hub
-        if: ${{ steps.check_dockerhub.outputs.has_credentials == 'true' }}
+        if: ${{ inputs.push_to_dockerhub == 'true' }}
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
